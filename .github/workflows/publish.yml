@@ -2,20 +2,21 @@ name: Publish
 
 on:
   # 当master分支有push时，触发action
-  push:
-    tags:
-      - 'v*'  # 以 'v' 开头的标签触发工作流程
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: false
 
 jobs:
   publish:
     name: Publish Pypi and Create Release
-    if: github.repository == 'xaoyaoo/PyWxDump' # 仅在指定仓库的 tag 触发工作流程
     # 此作业在 Linux 上运行
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository # 检出仓库
-        uses: actions/checkout@v2 # 使用 GitHub 官方的 checkout action
+        uses: actions/checkout@v6 # 使用 GitHub 官方的 checkout action
 
       - name: Set git fetch depth # 设置 git fetch 深度
         run: |
@@ -34,14 +35,14 @@ jobs:
           pip install -r requirements.txt
 
       - name: Set up Node.js # 设置 Node.js 环境
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Build Web UI # 构建 Web UI
         run: |
           cd ..
-          git clone https://github.com/xaoyaoo/wxdump_web.git
+          git clone https://github.com/Kuingsmile/wxdump_web.git
           Compress-Archive -Path wxdump_web -DestinationPath wxdump_web.zip
           Compress-Archive -Path PyWxDump -DestinationPath PyWxDump.zip
           cd wxdump_web
@@ -107,13 +108,6 @@ jobs:
           ls PyWxDump/dist
           cd PyWxDump
 
-      - name: Publish package with Twine # 使用 Twine 发布到 PyPI
-        run: |
-          twine upload dist/*.whl dist/*.tar.gz
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -121,12 +115,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref.tag }}
+          prerelease: true
           body: |
             [Auto Release] Update PyWxDump to ${{ github.ref }}
             详细更新日志请查看 [CHANGELOG.md](https://github.com/xaoyaoo/PyWxDump/blob/master/doc/CHANGELOG.md)
           draft: false
-          prerelease: false
           files: |
             dist/*.exe
             dist/*.whl
